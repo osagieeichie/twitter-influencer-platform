@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Influencer Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            width: 90%;
+            max-width: 1200px;
+            min-height: 600px;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #1da1f2, #14171a);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .auth-section, .dashboard-section {
+            display: none;
+        }
+
+        .auth-section.active, .dashboard-section.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #1da1f2;
+        }
+
+        .btn {
+            background: #1da1f2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .btn:hover {
+            background: #1991db;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn.secondary {
+            background: #657786;
+        }
+
+        .btn.secondary:hover {
+            background: #5a6c7a;
+        }
+
+        .btn.success {
+            background: #17bf63;
+        }
+
+        .btn.success:hover {
+            background: #15a85a;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e1e8ed;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            color: #657786;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #1da1f2;
+            border-bottom-color: #1da1f2;
+        }
+
+        .tab:hover {
+            color: #1da1f2;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f7f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid #e1e8ed;
+        }
+
+        .stat-card h3 {
+            font-size: 2rem;
+            color: #1da1f2;
+            margin-bottom: 8px;
+        }
+
+        .stat-card p {
+            color: #657786;
+            font-weight: 600;
+        }
+
+        .campaign-card {
+            background: #f7f9fa;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .campaign-card h4 {
+            color: #14171a;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .campaign-card p {
+            color: #657786;
+            margin-bottom: 15px;
+        }
+
+        .campaign-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .tag {
+            background: #1da1f2;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .assignment-card {
+            background: #fff;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .assignment-card.completed {
+            border-color: #17bf63;
+            background: #f8fff9;
+        }
+
+        .role-badge {
+            display: inline-block;
+            background: #657786;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .role-badge.post { background: #1da1f2; }
+        .role-badge.reply { background: #17bf63; }
+        .role-badge.retweet { background: #ff6b35; }
+        .role-badge.quote { background: #794bc4; }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1da1f2;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .verification-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .verification-code {
+            background: #14171a;
+            color: #1da1f2;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Twitter Influence Platform</h1>
+            <p>Earn money by engaging authentically with brand campaigns</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Loading Screen -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+
+            <!-- Authentication Section -->
+            <div id="auth-section" class="auth-section active">
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('login')">Login</div>
+                    <div class="tab" onclick="showTab('register')">Register</div>
+                </div>
+
+                <div id="alert-container"></div>
+
+                <!-- Login Form -->
+                <div id="login-form" class="tab-content">
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Password</label>
+                            <input type="password" id="loginPassword" required>
+                        </div>
+                        <button type="submit" class="btn">Login</button>
+                    </form>
+                </div>
+
+                <!-- Register Form -->
+                <div id="register-form" class="tab-content" style="display: none;">
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <label for="registerEmail">Email</label>
+                            <input type="email" id="registerEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Password</label>
+                            <input type="password" id="registerPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="twitterHandle">Twitter Handle (without @)</label>
+                            <input type="text" id="twitterHandle" placeholder="username" required>
+                        </div>
+                        <button type="submit" class="btn">Register</button>
+                    </form>
+                </div>
+
+                <!-- Verification Section -->
+                <div id="verification-section" style="display: none;">
+                    <div class="verification-box">
+                        <h3>📱 Verify Your Twitter Account</h3>
+                        <p>Add this code to your Twitter bio:</p>
+                        <div class="verification-code" id="verificationCode"></div>
+                        <p><small>After adding the code to your bio, click verify below.</small></p>
+                        <button class="btn success" onclick="verifyTwitter()">Verify Twitter Account</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Section -->
+            <div id="dashboard-section" class="dashboard-section">
+                <div class="tabs">
+                    <div class="tab active" onclick="showDashboardTab('overview')">Overview</div>
+                    <div class="tab" onclick="showDashboardTab('campaigns')">Available Campaigns</div>
+                    <div class="tab" onclick="showDashboardTab('assignments')">My Assignments</div>
+                </div>
+
+                <!-- Overview Tab -->
+                <div id="overview-tab" class="tab-content">
+                    <div class="stats-grid" id="statsGrid">
+                        <!-- Stats will be loaded here -->
+                    </div>
+                    <div id="userInfo"></div>
+                </div>
+
+                <!-- Campaigns Tab -->
+                <div id="campaigns-tab" class="tab-content" style="display: none;">
+                    <h3>🎯 Available Campaigns</h3>
+                    <div id="campaignsList">
+                        <!-- Campaigns will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Assignments Tab -->
+                <div id="assignments-tab" class="tab-content" style="display: none;">
+                    <h3>📋 My Assignments</h3>
+                    <div id="assignmentsList">
+                        <!-- Assignments will be loaded here -->
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="btn secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'http://localhost:3000/api';
+        let currentUser = null;
+        let authToken = localStorage.getItem('authToken');
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            if (authToken) {
+                showDashboard();
+            } else {
+                showAuth();
+            }
+        });
+
+        // Utility Functions
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alert-container');
+            alertContainer.innerHTML = `
+                <div class="alert ${type}">
+                    ${message}
+                </div>
+            `;
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+
+        function showLoading() {
+            document.getElementById('loading').classList.add('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('active');
+        }
+
+        function showAuth() {
+            document.getElementById('auth-section').classList.add('active');
+            document.getElementById('dashboard-section').classList.remove('active');
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-section').classList.remove('active');
+            document.getElementById('dashboard-section').classList.add('active');
+            loadDashboardData();
+        }
+
+        // Tab Functions
+        function showTab(tabName) {
+            // Update tab appearance
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide forms
+            document.getElementById('login-form').style.display = tabName === 'login' ? 'block' : 'none';
+            document.getElementById('register-form').style.display = tabName === 'register' ? 'block' : 'none';
+        }
+
+        function showDashboardTab(tabName) {
+            // Update tab appearance
+            document.querySelectorAll('#dashboard-section .tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide content
+            document.querySelectorAll('#dashboard-section .tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.getElementById(`${tabName}-tab`).style.display = 'block';
+            
+            // Load tab-specific data
+            if (tabName === 'campaigns') {
+                loadCampaigns();
+            } else if (tabName === 'assignments') {
+                loadAssignments();
+            }
+        }
+
+        // API Functions
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const config = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            if (authToken) {
+                config.headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            if (data) {
+                config.body = JSON.stringify(data);
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, config);
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.error || 'Request failed');
+                }
+                
+                return result;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // Authentication Functions
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            showLoading();
+            
+            try {
+                const email = document.getElementById('registerEmail').value;
+                const password = document.getElementById('registerPassword').value;
+                const twitterHandle = document.getElementById('twitterHandle').value;
+                
+                const result = await apiCall('/auth/register', 'POST', {
+                    email, password, twitterHandle
+                });
+                
+                showAlert(result.message, 'success');
+                document.getElementById('verificationCode').textContent = result.verificationCode;
+                document.getElementById('verification-section').style.display = 'block';
+                
+            } catch (error) {
+                showAlert(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            showLoading();
+            
+            try {
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                
+                const result = await apiCall('/auth/login', 'POST', {
+                    email, password
+                });
+                
+                authToken = result.token;
+                currentUser = result.user;
+                localStorage.setItem('authToken', authToken);
+                
+                showAlert('Login successful!', 'success');
+                setTimeout(() => {
+                    showDashboard();
+                }, 1000);
+                
+            } catch (error) {
+                if (error.message.includes('verify')) {
+                    showAlert(error.message, 'info');
+                    // If there's a verification code in the error response
+                    if (error.verificationCode) {
+                        document.getElementById('verificationCode').textContent = error.verificationCode;
+                        document.getElementById('verification-section').style.display = 'block';
+                    }
+                } else {
+                    showAlert(error.message, 'error');
+                }
+            } finally {
+                hideLoading();
+            }
+        });
+
+        async function verifyTwitter() {
+            showLoading();
+            
+            try {
+                const email = document.getElementById('registerEmail').value || 
+                             document.getElementById('loginEmail').value;
+                
+                const result = await apiCall('/auth/verify-twitter', 'POST', { email });
+                
+                showAlert(result.message, 'success');
+                document.getElementById('verification-section').style.display = 'none';
+                
+                // Auto-login after verification
+                setTimeout(() => {
+                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                }, 2000);
+                
+            } catch (error) {
+                showAlert(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('authToken');
+            authToken = null;
+            currentUser = null;
+            showAuth();
+        }
+
+        // Dashboard Functions
+        async function loadDashboardData() {
+            try {
+                const stats = await apiCall('/dashboard/stats');
+                displayStats(stats);
+            } catch (error) {
+                showAlert('Failed to load dashboard data', 'error');
+            }
+        }
+
+        function displayStats(data) {
+            const statsGrid = document.getElementById('statsGrid');
+            const userInfo = document.getElementById('userInfo');
+            
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <h3>$${data.user.totalEarnings.toFixed(2)}</h3>
+                    <p>Total Earnings</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.stats.totalAssignments}</h3>
+                    <p>Total Assignments</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.stats.completionRate}</h3>
+                    <p>Completion Rate</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${data.stats.totalEngagement}</h3>
+                    <p>Total Engagement</p>
+                </div>
+            `;
+            
+            const canParticipate = data.stats.canParticipate;
+            const restPeriodText = canParticipate ? 
+                '✅ Available for new campaigns' : 
+                `⏳ Rest period until ${new Date(data.stats.restPeriodUntil).toLocaleDateString()}`;
+            
+            userInfo.innerHTML = `
+                <div class="campaign-card">
+                    <h4>👋 Welcome, @${data.user.twitterHandle}!</h4>
+                    <p><strong>Status:</strong> ${restPeriodText}</p>
+                    <p><strong>Performance Score:</strong> ${data.user.performanceScore}/100</p>
+                </div>
+            `;
+        }
+
+        async function loadCampaigns() {
+            showLoading();
+            
+            try {
+                const campaigns = await apiCall('/campaigns/available');
+                displayCampaigns(campaigns);
+            } catch (error) {
+                showAlert('Failed to load campaigns', 'error');
+                document.getElementById('campaignsList').innerHTML = '<p>Failed to load campaigns</p>';
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayCampaigns(campaigns) {
+            const campaignsList = document.getElementById('campaignsList');
+            
+            if (campaigns.length === 0) {
+                campaignsList.innerHTML = '<p>No campaigns available at the moment. Check back later!</p>';
+                return;
+            }
+            
+            campaignsList.innerHTML = campaigns.map(campaign => `
+                <div class="campaign-card">
+                    <h4>${campaign.title}</h4>
+                    <p><strong>Brand:</strong> ${campaign.brand}</p>
+                    <p><strong>Budget:</strong> $${campaign.budget}</p>
+                    <p>${campaign.description}</p>
+                    <div class="campaign-tags">
+                        ${campaign.hashtags.map(tag => `<span class="tag">#${tag}</span>`).join('')}
+                    </div>
+                    <button class="btn" onclick="joinCampaign('${campaign._id}')">
+                        Join Campaign
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function joinCampaign(campaignId) {
+            showLoading();
+            
+            try {
+                const result = await apiCall(`/campaigns/join/${campaignId}`, 'POST');
+                showAlert(result.message, 'success');
+                loadCampaigns(); // Refresh campaigns list
+                loadDashboardData(); // Refresh stats
+            } catch (error) {
+                showAlert(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadAssignments() {
+            showLoading();
+            
+            try {
+                const assignments = await apiCall('/assignments/my');
+                displayAssignments(assignments);
+            } catch (error) {
+                showAlert('Failed to load assignments', 'error');
+                document.getElementById('assignmentsList').innerHTML = '<p>Failed to load assignments</p>';
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function displayAssignments(assignments) {
+            const assignmentsList = document.getElementById('assignmentsList');
+            
+            if (assignments.length === 0) {
+                assignmentsList.innerHTML = '<p>No assignments yet. Join some campaigns to get started!</p>';
+                return;
+            }
+            
+            assignmentsList.innerHTML = assignments.map(assignment => `
+                <div class="assignment-card ${assignment.completed ? 'completed' : ''}">
+                    <span class="role-badge ${assignment.role}">${assignment.role}</span>
+                    <h4>${assignment.campaignTitle}</h4>
+                    <p><strong>Brand:</strong> ${assignment.brand}</p>
+                    <p><strong>Task:</strong> ${assignment.content}</p>
+                    <p><strong>Assigned:</strong> ${new Date(assignment.assignedAt).toLocaleDateString()}</p>
+                    ${assignment.completed ? `
+                        <p><strong>✅ Completed!</strong> Earnings: $${assignment.earnings.toFixed(2)}</p>
+                        <p>Engagement: ${assignment.performance.likes} likes, ${assignment.performance.retweets} retweets</p>
+                    ` : `
+                        <button class="btn success" onclick="completeAssignment('${assignment.campaignId}')">
+                            Mark as Completed
+                        </button>
+                    `}
+                </div>
+            `).join('');
+        }
+
+        async function completeAssignment(campaignId) {
+            showLoading();
+            
+            try {
+                const result = await apiCall(`/assignments/complete/${campaignId}`, 'POST');
+                showAlert(result.message, 'success');
+                loadAssignments(); // Refresh assignments
+                loadDashboardData(); // Refresh stats
+            } catch (error) {
+                showAlert(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+    </script>
+</body>
+</html>
