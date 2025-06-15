@@ -123,11 +123,23 @@
             background: #15a85a;
         }
 
+        .btn.warning {
+            background: #ff9500;
+        }
+
+        .btn.warning:hover {
+            background: #e6850e;
+        }
+
         .alert {
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
             font-weight: 500;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .alert.success {
@@ -146,6 +158,23 @@
             background: #d1ecf1;
             color: #0c5460;
             border: 1px solid #bee5eb;
+        }
+
+        .alert-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.7;
+            margin-left: 15px;
+            padding: 0;
+            line-height: 1;
+        }
+
+        .alert-close:hover {
+            opacity: 1;
         }
 
         .tabs {
@@ -305,6 +334,23 @@
             font-weight: bold;
             display: inline-block;
             margin: 10px 0;
+            cursor: pointer;
+            user-select: all;
+        }
+
+        .verification-code:hover {
+            background: #2c2f33;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .button-group .btn {
+            flex: 1;
+            margin-bottom: 0;
         }
 
         @media (max-width: 768px) {
@@ -318,6 +364,14 @@
             
             .stats-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .button-group .btn {
+                margin-bottom: 10px;
             }
         }
     </style>
@@ -384,9 +438,15 @@
                     <div class="verification-box">
                         <h3>📱 Verify Your Twitter Account</h3>
                         <p>Add this code to your Twitter bio:</p>
-                        <div class="verification-code" id="verificationCode"></div>
-                        <p><small>After adding the code to your bio, click verify below.</small></p>
-                        <button class="btn success" onclick="verifyTwitter()">Verify Twitter Account</button>
+                        <div class="verification-code" id="verificationCode" title="Click to copy"></div>
+                        <p><small>💡 Tip: Click the code above to copy it, then paste it in your Twitter bio.</small></p>
+                        
+                        <div class="button-group">
+                            <button class="btn success" onclick="verifyTwitter()">🔍 Verify Twitter Account</button>
+                            <button class="btn warning" onclick="verifyTwitterSimple()">⚡ Quick Verify</button>
+                        </div>
+                        
+                        <p><small><strong>Quick Verify:</strong> Skip scraping and verify directly if you've added the code to your bio.</small></p>
                     </div>
                 </div>
             </div>
@@ -431,8 +491,8 @@
     </div>
 
     <script>
-        // Configuration
-       const API_BASE = 'https://web-production-cb14a.up.railway.app/api';
+        // Configuration - Use relative URL since frontend is served from same domain
+        const API_BASE = '/api';
         let currentUser = null;
         let authToken = localStorage.getItem('authToken');
 
@@ -448,14 +508,21 @@
         // Utility Functions
         function showAlert(message, type = 'info') {
             const alertContainer = document.getElementById('alert-container');
+            const alertId = 'alert_' + Date.now();
+            
             alertContainer.innerHTML = `
-                <div class="alert ${type}">
-                    ${message}
+                <div class="alert ${type}" id="${alertId}">
+                    <span>${message}</span>
+                    <button class="alert-close" onclick="closeAlert('${alertId}')">&times;</button>
                 </div>
             `;
-            setTimeout(() => {
-                alertContainer.innerHTML = '';
-            }, 5000);
+        }
+
+        function closeAlert(alertId) {
+            const alertElement = document.getElementById(alertId);
+            if (alertElement) {
+                alertElement.remove();
+            }
         }
 
         function showLoading() {
@@ -476,6 +543,18 @@
             document.getElementById('dashboard-section').classList.add('active');
             loadDashboardData();
         }
+
+        // Copy verification code to clipboard
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'verificationCode') {
+                const code = e.target.textContent;
+                navigator.clipboard.writeText(code).then(() => {
+                    showAlert('Verification code copied to clipboard!', 'success');
+                }).catch(() => {
+                    showAlert('Failed to copy code. Please copy manually.', 'error');
+                });
+            }
+        });
 
         // Tab Functions
         function showTab(tabName) {
@@ -615,6 +694,42 @@
                 
                 // Auto-login after verification
                 setTimeout(() => {
+                    if (document.getElementById('registerEmail').value) {
+                        // Transfer email to login form
+                        document.getElementById('loginEmail').value = document.getElementById('registerEmail').value;
+                        document.getElementById('loginPassword').value = document.getElementById('registerPassword').value;
+                    }
+                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                }, 2000);
+                
+            } catch (error) {
+                showAlert(error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function verifyTwitterSimple() {
+            showLoading();
+            
+            try {
+                const email = document.getElementById('registerEmail').value || 
+                             document.getElementById('loginEmail').value;
+                const verificationCode = document.getElementById('verificationCode').textContent;
+                
+                const result = await apiCall('/auth/verify-twitter-simple', 'POST', { 
+                    email, verificationCode 
+                });
+                
+                showAlert(result.message, 'success');
+                document.getElementById('verification-section').style.display = 'none';
+                
+                // Auto-login after verification
+                setTimeout(() => {
+                    if (document.getElementById('registerEmail').value) {
+                        document.getElementById('loginEmail').value = document.getElementById('registerEmail').value;
+                        document.getElementById('loginPassword').value = document.getElementById('registerPassword').value;
+                    }
                     document.getElementById('loginForm').dispatchEvent(new Event('submit'));
                 }, 2000);
                 
