@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server/app.js",
     "dev": "node server/app.js",
-    "build": "echo 'No build step required'"
+    "build": "echo 'No build step required'",
+    "postinstall": "npm run puppeteer:install",
+    "puppeteer:install": "npx puppeteer browsers install chrome"
   },
   "engines": {
     "node": ">=18.0.0"
