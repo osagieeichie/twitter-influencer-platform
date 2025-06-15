@@ -580,6 +580,55 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
   }
 });
 
+// Debug endpoint to see what Twitter scraper finds
+app.get('/api/debug/twitter/:username', async (req, res) => {
+  try {
+    const username = req.params.username;
+    console.log(`Debug: Checking Twitter profile for @${username}`);
+    
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
+    });
+    
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
+    
+    await page.goto(`https://twitter.com/${username}`, {
+      waitUntil: 'networkidle0',
+      timeout: 30000
+    });
+    
+    await page.waitForTimeout(5000);
+    
+    // Get all page text
+    const pageText = await page.evaluate(() => document.body.textContent || document.body.innerText || '');
+    
+    await browser.close();
+    
+    res.json({
+      username: username,
+      pageText: pageText.substring(0, 2000), // First 2000 characters
+      containsVerify: pageText.includes('VERIFY_'),
+      message: 'Check if your verification code appears in the page text above'
+    });
+    
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
