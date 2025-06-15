@@ -13,7 +13,11 @@ require('dotenv').config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Serve static files from public directory
@@ -25,7 +29,9 @@ app.get('/', (req, res) => {
 });
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/twitter-platform', {
+const mongoUri = process.env.MONGODB_URI || process.env.DATABASE_URL || 'mongodb://localhost:27017/twitter-platform';
+console.log('Connecting to MongoDB:', mongoUri ? 'Connected' : 'No URI found');
+mongoose.connect(mongoUri, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
@@ -76,38 +82,104 @@ const campaignSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const Campaign = mongoose.model('Campaign', campaignSchema);
 
+// Helper function to get Puppeteer config
+function getPuppeteerConfig() {
+  const config = {
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor'
+    ]
+  };
+
+  // Only set executablePath for local development
+  if (process.env.NODE_ENV !== 'production' && process.env.PUPPETEER_EXECUTABLE_PATH) {
+    config.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
+  return config;
+}
+
 // Twitter Scraping Functions
 async function verifyTwitterHandle(username, verificationCode) {
   let browser;
   try {
-    browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    });
+    console.log(`Verifying Twitter handle: @${username} with code: ${verificationCode}`);
+    
+    browser = await puppeteer.launch(getPuppeteerConfig());
     const page = await browser.newPage();
     
+    // Set user agent to avoid bot detection
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
     await page.goto(`https://twitter.com/${username}`, {
-      waitUntil: 'networkidle2',
-      timeout: 30000
+      waitUntil: 'networkidle0',
+      timeout: 45000
     });
     
-    // Wait for bio section
-    await page.waitForSelector('[data-testid="UserDescription"]', { timeout: 10000 });
+    // Wait for content to load
+    await page.waitForTimeout(5000);
     
-    const bio = await page.$eval('[data-testid="UserDescription"]', 
-      el => el.textContent || '');
+    // Try multiple selectors for the bio
+    let bio = '';
     
-    return bio.includes(verificationCode);
+    try {
+      const bioSelectors = [
+        '[data-testid="UserDescription"]',
+        '[data-testid="UserDescription"] span',
+        '.css-901oao.r-18jsvk2.r-37j5jr.r-a023e6.r-16dba41.r-rjixqe.r-bcqeeo.r-qvutc0',
+        '.css-901oao.css-16my406.r-poiln3.r-bcqeeo.r-qvutc0',
+        'div[dir="ltr"] span'
+      ];
+      
+      for (const selector of bioSelectors) {
+        try {
+          await page.waitForSelector(selector, { timeout: 5000 });
+          bio = await page.$eval(selector, el => el.textContent || el.innerText || '');
+          if (bio.trim()) {
+            console.log(`Found bio with selector ${selector}: ${bio.substring(0, 100)}...`);
+            break;
+          }
+        } catch (e) {
+          console.log(`Selector ${selector} not found, trying next...`);
+        }
+      }
+      
+      // If still no bio, search the entire page
+      if (!bio.trim()) {
+        bio = await page.evaluate(() => {
+          const possibleBioElements = document.querySelectorAll('span, div, p');
+          for (let el of possibleBioElements) {
+            const text = el.textContent || '';
+            if (text.includes('VERIFY_')) {
+              return text;
+            }
+          }
+          return document.body.textContent || '';
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error finding bio:', error);
+      bio = await page.evaluate(() => document.body.textContent || '');
+    }
+    
+    console.log(`Bio content (first 200 chars): ${bio.substring(0, 200)}...`);
+    console.log(`Looking for verification code: ${verificationCode}`);
+    
+    const isVerified = bio.includes(verificationCode);
+    console.log(`Verification result: ${isVerified}`);
+    
+    return isVerified;
+    
   } catch (error) {
     console.error('Error verifying Twitter handle:', error);
     return false;
@@ -119,20 +191,7 @@ async function verifyTwitterHandle(username, verificationCode) {
 async function getUserTweets(username, limit = 10) {
   let browser;
   try {
-    browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    });
+    browser = await puppeteer.launch(getPuppeteerConfig());
     const page = await browser.newPage();
     
     await page.goto(`https://twitter.com/${username}`, {
@@ -277,6 +336,7 @@ app.post('/api/auth/register', async (req, res) => {
       instructions: `Please add "${verificationCode}" to your Twitter bio, then click verify.`
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -310,6 +370,32 @@ app.post('/api/auth/verify-twitter', async (req, res) => {
       });
     }
   } catch (error) {
+    console.error('Verification error:', error);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+// Simple manual verification (backup method)
+app.post('/api/auth/verify-twitter-simple', async (req, res) => {
+  try {
+    const { email, verificationCode } = req.body;
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (user.verificationCode === verificationCode) {
+      user.isVerified = true;
+      user.verificationCode = undefined;
+      await user.save();
+      
+      res.json({ message: 'Twitter handle verified successfully!' });
+    } else {
+      res.status(400).json({ error: 'Verification code does not match' });
+    }
+  } catch (error) {
+    console.error('Manual verification error:', error);
     res.status(500).json({ error: 'Verification failed' });
   }
 });
@@ -353,6 +439,7 @@ app.post('/api/auth/login', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -380,6 +467,7 @@ app.post('/api/campaigns/create', authenticateToken, async (req, res) => {
       campaign: campaign
     });
   } catch (error) {
+    console.error('Campaign creation error:', error);
     res.status(500).json({ error: 'Failed to create campaign' });
   }
 });
@@ -403,6 +491,7 @@ app.get('/api/campaigns/available', authenticateToken, async (req, res) => {
     
     res.json(availableCampaigns);
   } catch (error) {
+    console.error('Fetch campaigns error:', error);
     res.status(500).json({ error: 'Failed to fetch campaigns' });
   }
 });
@@ -460,6 +549,7 @@ app.post('/api/campaigns/join/:campaignId', authenticateToken, async (req, res) 
       }
     });
   } catch (error) {
+    console.error('Join campaign error:', error);
     res.status(500).json({ error: 'Failed to join campaign' });
   }
 });
@@ -493,6 +583,7 @@ app.get('/api/assignments/my', authenticateToken, async (req, res) => {
     
     res.json(userAssignments);
   } catch (error) {
+    console.error('Fetch assignments error:', error);
     res.status(500).json({ error: 'Failed to fetch assignments' });
   }
 });
@@ -525,6 +616,7 @@ app.post('/api/assignments/complete/:campaignId', authenticateToken, async (req,
     
     res.json({ message: 'Assignment marked as completed' });
   } catch (error) {
+    console.error('Complete assignment error:', error);
     res.status(500).json({ error: 'Failed to complete assignment' });
   }
 });
@@ -576,6 +668,7 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Dashboard stats error:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard stats' });
   }
 });
@@ -586,21 +679,7 @@ app.get('/api/debug/twitter/:username', async (req, res) => {
     const username = req.params.username;
     console.log(`Debug: Checking Twitter profile for @${username}`);
     
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    });
-    
+    const browser = await puppeteer.launch(getPuppeteerConfig());
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
     
@@ -634,7 +713,8 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    message: 'Twitter Platform API is running'
+    message: 'Twitter Platform API is running',
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
@@ -653,7 +733,8 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}/api/health`);
+  console.log(`📊 Health Check: ${process.env.NODE_ENV === 'production' ? 'https://your-app.railway.app' : 'http://localhost:' + PORT}/api/health`);
+  console.log(`🌐 Frontend: ${process.env.NODE_ENV === 'production' ? 'https://your-app.railway.app' : 'http://localhost:' + PORT}`);
 });
 
 module.exports = app;
