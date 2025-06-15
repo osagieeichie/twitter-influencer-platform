@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const puppeteer = require('puppeteer');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -14,6 +15,14 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from public directory
+app.use(express.static('public'));
+
+// Serve the frontend at root path
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/twitter-platform', {
